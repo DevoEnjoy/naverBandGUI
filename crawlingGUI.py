@@ -4,21 +4,125 @@ import os
 import sys
 import yaml
 # import naverBandAPI.client as client
-from __init__ import config_file_path, root_folder_path
-sys.path.append(root_folder_path)
-from library.basic import *
-from crawling import Crawling
+# from __init__ import config_file_path, root_folder_path
+# sys.path.append(root_folder_path)
+# from library.basic import *
+# from crawling import Crawling
 
 import tkinter as tk
 from tkinter import ttk
 from cryptography.fernet import Fernet
 import os
-import time
 import pyautogui
 import pyperclip
 
+# ============================
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+
+from webdriver_manager.chrome import ChromeDriverManager    
+
+import pandas as pd
+import time
+
+# from library.basic import *
+
+print("옵션 설정")
+# 브라우저 꺼짐 방지
+chrome_options = Options()
+chrome_options.add_experimental_option("detach", True)
+
+chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+
+print("크롬드라이버 매니저 설치")
+service = Service(ChromeDriverManager().install())
+# 크롬 드라이버 경로 설정
+# chrome_default_driver_path = join_folder_path(root_folder_path, 'chromedriver', 'chromedriver.exe')  # 정확한 경로로 변경
+# while(True):
+#     if not path_exist(chrome_default_driver_path):
+#         clear()
+#         chrome_default_driver_path = strip_quotes(input("Enter chromedriver.exe path : "))
+#     else:
+#         break
+
+class Crawling:
+    def __init__(self, url) -> None:
+        # 크롬 드라이버 서비스 생성
+        # self.service = Service(chrome_driver_path)
+        # self.driver = webdriver.Chrome(service=self.service)
+
+        # WebDriver Manager를 사용하여 ChromeDriver 설정
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        # 웹 페이지 열기
+        self.set_url(url)
+        
+    def find_element(self, selector:str, keyword:str):
+        select = {
+            "id": By.ID,
+            "name": By.NAME,
+            "xpath": By.XPATH,
+            "class": By.CLASS_NAME,
+            "tag": By.TAG_NAME,
+            "link_text": By.LINK_TEXT,
+            "partial_link_text": By.PARTIAL_LINK_TEXT,
+            "css_selector": By.CSS_SELECTOR
+        }
+        
+        try:
+            get_data = self.driver.find_element(select[selector], keyword)
+        except:
+            return None
+        
+        return get_data
+
+    def find_elements(self, selector:str, keyword:str):
+        select = {
+            "id": By.ID,
+            "name": By.NAME,
+            "xpath": By.XPATH,
+            "class": By.CLASS_NAME,
+            "tag": By.TAG_NAME,
+            "link_text": By.LINK_TEXT,
+            "partial_link_text": By.PARTIAL_LINK_TEXT,
+            "css_selector": By.CSS_SELECTOR
+        }
+        
+        try:
+            get_data = self.driver.find_elements(select[selector], keyword)
+        except:
+            return None
+        
+        return get_data
+
+    def maximize(self):
+        self.driver.maximize_window()
+    
+    def set_url(self, url):
+        self.url = url
+        return self
+    
+    def quit(self):
+        self.driver.quit()
+
+    def run(self, wait_time=10):
+        self.driver.get(self.url)
+
+        # # 페이지 로딩을 기다리기 위해 약간의 지연 시간 추가
+        time.sleep(5)  # 5초 동안 대기. 네트워크 상태에 따라 조절 가능
+
+        # # 필요한 데이터가 로드될 때까지 대기
+        wait = WebDriverWait(self.driver, wait_time)
+        return wait
+# ============================
+
 class BandGUI:
     def __init__(self, root: tk.Tk):
+        print("밴드GUI 초기화")
         self.root = root
         self.root.title("NaverBandGUI - Controller")
         
@@ -36,10 +140,16 @@ class BandGUI:
         self.cipher = Fernet(self.key)
         
         self.login_options = [
-            # "이메일",
+            "이메일",
             "네이버",
             # "페이스북",
             # "애플",
+        ]
+        self.logins = [
+            self.login_email, 
+            self.login_naver, 
+            # self.login_facebook, 
+            # self.login_apple
         ]
 
         # Create and place widgets
@@ -52,17 +162,12 @@ class BandGUI:
         
         self.load_credentials()
         
-        self.logins = [
-            # self.login_email, 
-            self.login_naver, 
-            # self.login_facebook, 
-            # self.login_apple
-        ]
-        
+    def new_run(self):
         self.crawl = Crawling(url="https://band.us/home")
         self.crawl.run()
-    
+        
     def setting_login(self):
+        
         # ID Label and Entry
         self.id_label = ttk.Label(self.login_frame, text="ID:")
         self.id_label.grid(row=0, column=0, padx=5, pady=5, sticky=tk.E)
@@ -81,6 +186,9 @@ class BandGUI:
         self.remember_var = tk.BooleanVar()
         self.remember_check = ttk.Checkbutton(self.login_frame, text="Remember Me", variable=self.remember_var)
         self.remember_check.grid(row=2, columnspan=2, padx=5, pady=5)
+        
+        self.new_browser = ttk.Button(self.login_frame, text="New Browser", command=self.new_run)
+        self.new_browser.grid(row=2, column=1, sticky=tk.E)
         
         # Login Options
         self.login_option_label = ttk.Label(self.login_frame, text="Login Options:")
@@ -116,25 +224,21 @@ class BandGUI:
         
         
         self.scrollbar = ttk.Scrollbar(self.search_frame)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         self.listbox = tk.Listbox(self.search_frame, selectmode=tk.MULTIPLE, yscrollcommand=self.scrollbar.set)
-        self.listbox.pack()
+        self.listbox.grid()
         self.scrollbar.config(command=self.listbox.yview)
         
-        
-
-
-
-
         self.search_frame.pack()
         
-    def update_listbox(self, items):
+    def update_listbox(self, dict_list:dict):
         self.listbox.delete(0, tk.END)
-        for item in items:
-            self.listbox.insert(tk.END, item)
-        
+        for item in dict_list:
+            self.listbox.insert(tk.END, item["text"][:12])
+
     def load_key(self):
+
         key_file = 'secret.key'
         if os.path.exists(key_file):
             with open(key_file, 'rb') as file:
@@ -195,6 +299,13 @@ class BandGUI:
         submit_btn2 = self.crawl.find_element("class", "-confirm")
         submit_btn2.click()
         
+        # self.authrizer = Crawling(url="https://accounts.google.com/")
+        # self.authrizer.run(3)
+        
+        # self.authrizer.find_element("css_selector", "#identifierId").click()
+        # pyperclip.copy(user_id)
+        # pyautogui.hotkey("ctrl", "v")
+        
     def login_naver(self, user_id, password):
         self.crawl.set_url(url="https://nid.naver.com/")
         self.crawl.run(3)
@@ -250,29 +361,24 @@ class BandGUI:
         
         pass
     
-    def navigate(self):
-        self.crawl.set_url("https://band.us/").run(2)
-
+    def navigate(self, url="https://band.us/", suffix=""):
+        self.crawl.set_url(url + suffix).run(2)
+        
     def start_crawling(self):
         search_term = self.search_entry.get()
         
-        # 검색창 클릭
-        self.crawl.find_element("css_selector", "#input_search_view64").click()
-        pyperclip.copy(search_term)
-        pyautogui.hotkey("ctrl", "v")
+        # 검색 페이지로 이동
+        self.navigate(url="https://band.us/discover/search/" + search_term)
         time.sleep(2)
-        
-        # 검색버튼 클릭
-        self.crawl.find_element("css_selector", "#btn_search").click()
-        time.sleep(3)
         
         self.update_listbox(self.get_band_links())
         
     def get_band_links(self):
-        elements = self.driver.find_elements_by_class_name("_goBand")
-        return [elem.get_attribute("href") for elem in elements]
+        elements = self.crawl.find_elements("class", "_goBand")
+        return [{"href": elem.get_attribute("href"), "text":elem.text.strip()} for elem in elements]
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = BandGUI(root)
     root.mainloop()
+    input("Press Enter to close...")

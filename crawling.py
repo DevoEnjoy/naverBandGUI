@@ -1,7 +1,7 @@
 import os
 import sys
-from __init__ import root_folder_path
-sys.path.append(root_folder_path)
+# from __init__ import root_folder_path
+# sys.path.append(root_folder_path)
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -14,7 +14,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import time
 
-from library.basic import *
+# from library.basic import *
 
 # 브라우저 꺼짐 방지
 chrome_options = Options()
@@ -59,6 +59,25 @@ class Crawling:
         
         try:
             get_data = self.driver.find_element(select[selector], keyword)
+        except:
+            return None
+        
+        return get_data
+
+    def find_elements(self, selector:str, keyword:str):
+        select = {
+            "id": By.ID,
+            "name": By.NAME,
+            "xpath": By.XPATH,
+            "class": By.CLASS_NAME,
+            "tag": By.TAG_NAME,
+            "link_text": By.LINK_TEXT,
+            "partial_link_text": By.PARTIAL_LINK_TEXT,
+            "css_selector": By.CSS_SELECTOR
+        }
+        
+        try:
+            get_data = self.driver.find_elements(select[selector], keyword)
         except:
             return None
         
